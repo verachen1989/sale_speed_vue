@@ -20,4 +20,26 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5174,
   },
+  build: {
+    target: ['es2015', 'safari11'],
+    cssTarget: 'safari11',
+    minify: 'terser',
+    terserOptions: {
+      safari10: true,
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vue-vendor': ['vue', 'vue-router', 'pinia'],
+          'element-plus': ['element-plus'],
+          'echarts': ['echarts', 'vue-echarts'],
+        },
+      },
+    },
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      target: 'es2015',
+    },
+  },
 })
