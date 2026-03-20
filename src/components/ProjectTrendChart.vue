@@ -30,35 +30,45 @@
 
       <div v-if="period === '当年'" class="flex items-center gap-2 text-xs shrink-0">
         <span class="text-gray-500">对比</span>
-        <el-select :model-value="selectedVersion" @change="$emit('update:selectedVersion', $event)" size="small" class="w-40">
-          <el-option label="年度经营计划版" value="年度经营计划版" />
-          <el-option label="首开定价会版" value="首开定价会版" />
-          <el-option label="全景会版" value="全景会版" />
-          <el-option label="经营策划会版" value="经营策划会版" />
-          <el-option label="交底会版" value="交底会版" />
-        </el-select>
+        <div class="relative inline-flex items-center">
+          <select
+            :value="selectedVersion"
+            class="h-auto w-auto border-0 bg-transparent text-[12px] text-[#007440] pl-0 pr-3 focus:outline-none appearance-none"
+            @change="$emit('update:selectedVersion', ($event.target as HTMLSelectElement).value as VersionType)"
+          >
+            <option value="年度经营计划版">年度经营计划版</option>
+            <option value="首开定价会版">首开定价会版</option>
+            <option value="全景会版">全景会版</option>
+            <option value="经营策划会版">经营策划会版</option>
+            <option value="交底会版">交底会版</option>
+          </select>
+          <ChevronDown
+            class="pointer-events-none absolute right-0 top-1/2 h-3 w-3 -translate-y-1/2 text-[#007440]"
+          />
+        </div>
       </div>
     </div>
 
-    <div class="flex items-center justify-between gap-3 mb-3">
-      <div class="flex items-center gap-4 text-xs">
-        <div v-if="period === '当年'" class="flex items-center gap-2">
-          <div class="w-2 h-2 rounded-full bg-orange-500"></div>
-          <span class="text-gray-500">目标</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <div class="w-2 h-2 rounded-full bg-green-700"></div>
-          <span class="text-gray-500">实际</span>
-        </div>
-        <div v-if="isAllLayoutSelected && metricType === '套数'" class="flex items-center gap-2">
-          <div class="w-2 h-2 rounded-full bg-blue-500"></div>
-          <span class="text-gray-500">来访组数</span>
-        </div>
-      </div>
+    <div class="flex items-center justify-end gap-3 mb-3">
       <span class="text-gray-500 text-xs">单位：{{ unitLabel }}</span>
     </div>
 
     <v-chart :option="chartOption" :style="{ height: '180px' }" autoresize />
+
+    <div class="mt-2 flex items-center justify-center gap-4 text-xs">
+      <div v-if="period === '当年'" class="flex items-center gap-2">
+        <div class="w-2 h-2 rounded-full bg-orange-500"></div>
+        <span class="text-gray-500">目标</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="w-2 h-2 rounded-full bg-green-700"></div>
+        <span class="text-gray-500">实际</span>
+      </div>
+      <div v-if="isAllLayoutSelected && metricType === '套数'" class="flex items-center gap-2">
+        <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+        <span class="text-gray-500">来访组数</span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -69,6 +79,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { BarChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
+import { ChevronDown } from 'lucide-vue-next'
 import type { Period, VersionType, ChartData } from '@/types'
 
 use([CanvasRenderer, BarChart, GridComponent, TooltipComponent])
@@ -215,18 +226,23 @@ const chartOption = computed(() => {
         color: '#1a1a1a',
       },
       formatter: (params: any) => {
+        const metricUnit = props.metricType === '金额' ? '万' : '套'
         let html = `<div style="padding: 4px;"><div style="font-weight: 600; margin-bottom: 4px;">${params[0].name}</div>`
         
         params.forEach((item: any) => {
           const color = item.seriesName === '目标' ? '#f59e0b' : item.seriesName === '来访组数' ? '#3b82f6' : '#007440'
-          html += `<div style="color: ${color};">${item.seriesName}: ${item.value.toLocaleString()}</div>`
+          const unit = item.seriesName === '来访组数' ? '组' : metricUnit
+          html += `<div style="color: ${color};">${item.seriesName}: ${item.value.toLocaleString()}${unit}</div>`
         })
         
         if (props.period === '当年') {
           const target = params.find((p: any) => p.seriesName === '目标')
           const actual = params.find((p: any) => p.seriesName === '实际')
           if (target && actual) {
+            const diff = actual.value - target.value
+            const diffColor = diff >= 0 ? '#00c950' : '#ff3b30'
             const rate = Math.round((actual.value / target.value) * 100)
+            html += `<div style="color: ${diffColor};">偏差: ${diff >= 0 ? '+' : ''}${diff.toLocaleString()}${metricUnit}</div>`
             html += `<div style="color: ${rate >= 100 ? '#00c950' : '#ff3b30'};">达成率: ${rate}%</div>`
           }
         }

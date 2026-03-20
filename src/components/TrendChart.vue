@@ -1,8 +1,30 @@
 <template>
-  <div class="bg-white rounded-lg p-4">
-    <h3 class="text-gray-900 text-base font-semibold mb-3">流速趋势</h3>
-    
-    <div class="mb-3 flex items-center justify-between">
+  <div class="bg-white rounded-bl-[10px] rounded-br-[10px] p-4">
+    <div class="mb-3 flex items-center justify-between gap-3">
+      <h3 class="text-[#1a1a1a] text-[14px] font-medium">
+        {{ titleText }}{{ filterLabel ? `-${filterLabel}` : '' }}
+      </h3>
+      <div v-if="period === '当年'" class="flex items-center gap-2 text-xs shrink-0">
+        <span class="text-[#8c8c8c] text-[12px]">对比</span>
+        <div class="relative inline-flex items-center">
+          <select
+            v-model="selectedVersion"
+            class="h-auto w-auto border-0 bg-transparent text-[12px] text-[#007440] pl-0 pr-3 focus:outline-none appearance-none"
+          >
+            <option value="年度经营计划版">年度经营计划版</option>
+            <option value="首开定价会版">首开定价会版</option>
+            <option value="全景会版">全景会版</option>
+            <option value="经营策划会版">经营策划会版</option>
+            <option value="交底会版">交底会版</option>
+          </select>
+          <ChevronDown
+            class="pointer-events-none absolute right-0 top-1/2 h-3 w-3 -translate-y-1/2 text-[#007440]"
+          />
+        </div>
+      </div>
+    </div>
+
+    <div class="mb-3 flex items-center gap-3">
       <div class="flex items-center gap-2">
         <button
           @click="metricType = '套数'"
@@ -27,31 +49,28 @@
           金额
         </button>
       </div>
-
-      <div v-if="store.period === '当年'" class="flex items-center gap-2 text-xs">
-        <span class="text-gray-500">对比</span>
-        <el-select v-model="selectedVersion" size="small" class="w-40">
-          <el-option label="年度经营计划版" value="年度经营计划版" />
-          <el-option label="首开定价会版" value="首开定价会版" />
-          <el-option label="全景会版" value="全景会版" />
-          <el-option label="经营策划会版" value="经营策划会版" />
-          <el-option label="交底会版" value="交底会版" />
-        </el-select>
-      </div>
-    </div>
-
-    <div class="flex items-center gap-4 mb-3 text-xs">
-      <div class="flex items-center gap-2">
-        <div class="w-2 h-2 rounded-full bg-orange-500"></div>
-        <span class="text-gray-500">目标</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <div class="w-2 h-2 rounded-full bg-green-700"></div>
-        <span class="text-gray-500">实际</span>
-      </div>
     </div>
 
     <v-chart :option="chartOption" :style="{ height: '200px' }" autoresize />
+
+    <div class="mt-2 flex items-center justify-center gap-4 text-xs">
+      <template v-if="period === '当年'">
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full bg-orange-500"></div>
+          <span class="text-[#8c8c8c] text-[12px]">目标</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full bg-green-700"></div>
+          <span class="text-[#8c8c8c] text-[12px]">实际</span>
+        </div>
+      </template>
+      <template v-else>
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full bg-green-700"></div>
+          <span class="text-[#8c8c8c] text-[12px]">实际</span>
+        </div>
+      </template>
+    </div>
   </div>
 </template>
 
@@ -62,18 +81,33 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { BarChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
-import { useDashboardStore } from '@/stores/dashboard'
+import { ChevronDown } from 'lucide-vue-next'
 import { getTrendData } from '@/mock/dashboardData'
-import type { VersionType } from '@/types'
+import type { IndicatorType, Period, PropertyType, VersionType } from '@/types'
 
 use([CanvasRenderer, BarChart, GridComponent, TooltipComponent, LegendComponent])
 
-const store = useDashboardStore()
+const props = defineProps<{
+  period: Period
+  indicatorType: IndicatorType
+  propertyType: PropertyType
+  filterLabel?: string
+}>()
+
+const filterLabel = computed(() => props.filterLabel ?? '')
 const metricType = ref<'套数' | '金额'>('套数')
 const selectedVersion = ref<VersionType>('年度经营计划版')
+const titleText = computed(() => {
+  const title = {
+    当日: '近7日流速趋势',
+    当月: '近6周流速趋势',
+    当年: '近6个月流速趋势',
+  } as const
+  return title[props.period]
+})
 
 const trendData = computed(() => {
-  const data = getTrendData(store.period, store.indicatorType)
+  const data = getTrendData(props.period, props.indicatorType, metricType.value, filterLabel.value, props.propertyType)
   
   // 根据会议版本调整目标值
   const versionMultipliers: Record<VersionType, number> = {
@@ -86,11 +120,10 @@ const trendData = computed(() => {
   
   const multiplier = versionMultipliers[selectedVersion.value]
   
-  return data.map(item => ({
+  return data.map((item) => ({
     ...item,
     target: Math.round(item.target * multiplier),
-    actual: metricType.value === '金额' ? Math.round(item.actual * 190) : item.actual,
-    targetValue: metricType.value === '金额' ? Math.round(item.target * multiplier * 190) : Math.round(item.target * multiplier),
+    targetValue: item.target,
   }))
 })
 
@@ -135,21 +168,36 @@ const chartOption = computed(() => ({
       color: '#1a1a1a',
     },
     formatter: (params: any) => {
-      const target = params[0]
-      const actual = params[1]
+      const target = params.find((p: any) => p.seriesName === '目标')
+      const actual = params.find((p: any) => p.seriesName === '实际')
+      const rawUnit = metricType.value === '金额' ? '万' : '套'
+      if (!actual) return ''
+      if (props.period !== '当年') {
+        return `
+          <div style="padding: 4px;">
+            <div style="font-weight: 600; margin-bottom: 4px;">${actual.name}</div>
+            <div style="color: #007440;">实际: ${actual.value.toLocaleString()}${rawUnit}</div>
+          </div>
+        `
+      }
+      if (!target) return ''
       const rate = Math.round((actual.value / target.value) * 100)
+      const diff = actual.value - target.value
+      const diffColor = diff >= 0 ? '#00c950' : '#ff3b30'
       return `
         <div style="padding: 4px;">
           <div style="font-weight: 600; margin-bottom: 4px;">${target.name}</div>
-          <div style="color: #f59e0b;">目标: ${target.value.toLocaleString()}</div>
-          <div style="color: #007440;">实际: ${actual.value.toLocaleString()}</div>
+          <div style="color: #f59e0b;">目标: ${target.value.toLocaleString()}${rawUnit}</div>
+          <div style="color: #007440;">实际: ${actual.value.toLocaleString()}${rawUnit}</div>
+          <div style="color: ${diffColor};">偏差: ${diff >= 0 ? '+' : ''}${diff.toLocaleString()}${rawUnit}</div>
           <div style="color: ${rate >= 100 ? '#00c950' : '#ff3b30'};">达成率: ${rate}%</div>
         </div>
       `
     },
   },
   series: [
-    {
+    ...(props.period === '当年'
+      ? [{
       name: '目标',
       type: 'bar',
       data: trendData.value.map(d => d.targetValue),
@@ -168,7 +216,8 @@ const chartOption = computed(() => ({
         borderRadius: [4, 4, 0, 0],
       },
       barWidth: 16,
-    },
+    }]
+      : []),
     {
       name: '实际',
       type: 'bar',
