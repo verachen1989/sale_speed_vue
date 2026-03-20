@@ -1,14 +1,20 @@
 <template>
   <div class="grid grid-cols-2 gap-2">
-    <div class="bg-white rounded-lg p-3">
+    <div class="bg-white rounded-lg p-3 shadow-sm">
       <div class="text-gray-500 text-xs mb-1">{{ store.indicatorType }}套数</div>
-      <div class="text-2xl font-bold text-gray-900">{{ totalUnits.toLocaleString() }}</div>
+      <div class="flex items-baseline gap-1">
+        <span class="text-2xl font-bold text-gray-900">{{ totalUnits.toLocaleString() }}</span>
+        <span class="text-xs text-gray-500">套</span>
+      </div>
       <div class="text-green-600 text-xs mt-1">↑ 18%</div>
     </div>
 
-    <div class="bg-white rounded-lg p-3">
+    <div class="bg-white rounded-lg p-3 shadow-sm">
       <div class="text-gray-500 text-xs mb-1">{{ store.indicatorType }}金额</div>
-      <div class="text-2xl font-bold text-gray-900">{{ totalAmount.toLocaleString() }}</div>
+      <div class="flex items-baseline gap-1">
+        <span class="text-2xl font-bold text-gray-900">{{ (totalAmount / 10000).toFixed(1) }}</span>
+        <span class="text-xs text-gray-500">亿</span>
+      </div>
       <div class="text-green-600 text-xs mt-1">↑ 20%</div>
     </div>
   </div>

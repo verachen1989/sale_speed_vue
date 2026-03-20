@@ -1,26 +1,75 @@
 <template>
-  <div class="flex items-center gap-2 overflow-x-auto py-2">
-    <el-select v-model="store.period" @change="store.setPeriod" size="small" class="w-24">
-      <el-option label="当日" value="当日" />
-      <el-option label="当月" value="当月" />
-      <el-option label="当年" value="当年" />
-    </el-select>
+  <div class="flex items-center gap-1 overflow-x-auto py-2 scrollbar-hide">
+    <!-- 周期选择 -->
+    <div class="flex items-center gap-1 bg-gray-100 rounded-md p-0.5">
+      <button
+        v-for="option in periodOptions"
+        :key="option"
+        @click="store.setPeriod(option)"
+        :class="[
+          'px-3 py-1 text-sm rounded transition-colors whitespace-nowrap',
+          store.period === option
+            ? 'bg-white text-gray-900 shadow-sm font-medium'
+            : 'text-gray-600 hover:text-gray-900'
+        ]"
+      >
+        {{ option }}
+      </button>
+    </div>
 
-    <el-select v-model="store.propertyType" @change="store.setPropertyType" size="small" class="w-24">
-      <el-option label="住宅" value="住宅" />
-      <el-option label="商办" value="商办" />
-      <el-option label="车储" value="车储" />
-    </el-select>
+    <!-- 物业类型选择 -->
+    <div class="flex items-center gap-1 bg-gray-100 rounded-md p-0.5">
+      <button
+        v-for="option in propertyOptions"
+        :key="option"
+        @click="store.setPropertyType(option)"
+        :class="[
+          'px-3 py-1 text-sm rounded transition-colors whitespace-nowrap',
+          store.propertyType === option
+            ? 'bg-white text-gray-900 shadow-sm font-medium'
+            : 'text-gray-600 hover:text-gray-900'
+        ]"
+      >
+        {{ option }}
+      </button>
+    </div>
 
-    <el-select v-model="store.indicatorType" @change="store.setIndicatorType" size="small" class="w-24">
-      <el-option label="协议" value="协议" />
-      <el-option label="合同" value="合同" />
-    </el-select>
+    <!-- 指标类型选择 -->
+    <div class="flex items-center gap-1 bg-gray-100 rounded-md p-0.5">
+      <button
+        v-for="option in indicatorOptions"
+        :key="option"
+        @click="store.setIndicatorType(option)"
+        :class="[
+          'px-3 py-1 text-sm rounded transition-colors whitespace-nowrap',
+          store.indicatorType === option
+            ? 'bg-white text-gray-900 shadow-sm font-medium'
+            : 'text-gray-600 hover:text-gray-900'
+        ]"
+      >
+        {{ option }}
+      </button>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { useDashboardStore } from '@/stores/dashboard'
+import type { Period, PropertyType, IndicatorType } from '@/types'
 
 const store = useDashboardStore()
+
+const periodOptions: Period[] = ['当日', '当月', '当年']
+const propertyOptions: PropertyType[] = ['住宅', '商办', '车储']
+const indicatorOptions: IndicatorType[] = ['协议', '合同']
 </script>
+
+<style scoped>
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+</style>
