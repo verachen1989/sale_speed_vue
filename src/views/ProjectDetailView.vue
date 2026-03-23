@@ -78,6 +78,7 @@
 
         <div class="rounded-tl-[10px] rounded-tr-[20px] bg-[#e8f5f0] px-4 py-2.5">
           <div ref="layoutScrollRef" class="flex gap-2 overflow-x-auto pb-2" @scroll="updateSelectedLayoutByScroll">
+            <div class="w-1 shrink-0" aria-hidden="true" />
             <div
               v-for="layout in layoutOptions"
               :key="layout.label"
@@ -102,6 +103,7 @@
                 </p>
               </div>
             </div>
+            <div class="w-4 shrink-0" aria-hidden="true" />
           </div>
         </div>
       </div>
@@ -173,6 +175,21 @@ const selectedVersion = ref<VersionType>('年度经营计划版')
 const layoutScrollRef = ref<HTMLDivElement | null>(null)
 const layoutCardRefs = ref<Record<string, HTMLDivElement | null>>({})
 const scrollTicking = ref(false)
+const layoutDefinitions = [
+  { label: '中高层128A-3', secondaryType: '中高层', ratio: 0.052 },
+  { label: '中高层106b-4', secondaryType: '中高层', ratio: 0.049 },
+  { label: '中高层109B-5', secondaryType: '中高层', ratio: 0.061 },
+  { label: '中高层139A-10', secondaryType: '中高层', ratio: 0.073 },
+  { label: '中高层139a-11', secondaryType: '中高层', ratio: 0.067 },
+  { label: '中高层164A-6', secondaryType: '中高层', ratio: 0.081 },
+  { label: '中高层162A-7', secondaryType: '中高层', ratio: 0.075 },
+  { label: '中高层139B-12', secondaryType: '中高层', ratio: 0.069 },
+  { label: '中高层106a-2', secondaryType: '中高层', ratio: 0.047 },
+  { label: '中高层109A-1', secondaryType: '中高层', ratio: 0.057 },
+  { label: '中高层165A-9', secondaryType: '中高层', ratio: 0.084 },
+  { label: '地库标准车位', secondaryType: '地下车位', ratio: 0.138 },
+  { label: '地库子母车位', secondaryType: '地下车位', ratio: 0.112 },
+] as const
 const propertySecondaryValue = computed({
   get: () => `${propertyType.value}|${selectedSecondaryType.value}`,
   set: (value: string) => {
@@ -188,39 +205,30 @@ const project = computed(() => getProjectDetail(projectId, period.value, propert
 const layoutOptions = computed(() => {
   const baseUnits = project.value?.contractUnits || 1000
   const baseAmount = project.value?.contractAmount || 200000
-  
   return [
     {
       label: '全部已售',
+      secondaryType: selectedSecondaryType.value,
       count: baseUnits,
       amount: baseAmount,
-      inventory: Math.max(0, Math.round(baseUnits * 0.23)),
     },
-    {
-      label: '中高层128A-3',
-      count: Math.round(baseUnits * 0.052),
-      amount: Math.round(baseAmount * 0.052),
-      inventory: Math.max(0, Math.round(baseUnits * 0.052 * 0.23)),
-    },
-    {
-      label: '中高层106b-4',
-      count: Math.round(baseUnits * 0.049),
-      amount: Math.round(baseAmount * 0.049),
-      inventory: Math.max(0, Math.round(baseUnits * 0.049 * 0.23)),
-    },
-    {
-      label: '中高层109B-5',
-      count: Math.round(baseUnits * 0.061),
-      amount: Math.round(baseAmount * 0.061),
-      inventory: Math.max(0, Math.round(baseUnits * 0.061 * 0.23)),
-    },
-    {
-      label: '中高层139A-10',
-      count: Math.round(baseUnits * 0.073),
-      amount: Math.round(baseAmount * 0.073),
-      inventory: Math.max(0, Math.round(baseUnits * 0.073 * 0.23)),
-    },
+    ...layoutDefinitions.map((item) => ({
+      label: item.label,
+      secondaryType: item.secondaryType,
+      count: Math.max(1, Math.round(baseUnits * item.ratio)),
+      amount: Math.max(1, Math.round(baseAmount * (item.ratio + 0.004))),
+    })),
   ]
+    .map((item) => ({
+      ...item,
+      inventory: Math.max(0, Math.round(item.count * 0.23)),
+    }))
+    .filter(
+      (item) =>
+        item.label === '全部已售' ||
+        selectedSecondaryType.value === '全部' ||
+        item.secondaryType === selectedSecondaryType.value
+    )
 })
 
 // 生成月份标签（从2026年3月往前推6个月）
@@ -414,8 +422,15 @@ function updateSelectedLayoutByScroll() {
   }
 
   const firstLabel = options[0]?.label ?? '全部已售'
+  const lastLabel = options[options.length - 1]?.label ?? firstLabel
   if (container.scrollLeft <= 8) {
     if (selectedLayout.value !== firstLabel) selectedLayout.value = firstLabel
+    scrollTicking.value = false
+    return
+  }
+  const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth)
+  if (container.scrollLeft >= maxScrollLeft - 8) {
+    if (selectedLayout.value !== lastLabel) selectedLayout.value = lastLabel
     scrollTicking.value = false
     return
   }
@@ -451,6 +466,19 @@ function updateSelectedLayoutByScroll() {
 
 function handleLayoutFilterClick(label: string) {
   selectedLayout.value = label
+  scrollLayoutCardIntoView(label)
+}
+
+function scrollLayoutCardIntoView(label: string, behavior: ScrollBehavior = 'smooth') {
+  const container = layoutScrollRef.value
+  const card = layoutCardRefs.value[label]
+  if (!container || !card) return
+
+  const targetLeft = card.offsetLeft - (container.clientWidth - card.offsetWidth) / 2
+  container.scrollTo({
+    left: Math.max(0, targetLeft),
+    behavior,
+  })
 }
 
 function handleResetFilters() {

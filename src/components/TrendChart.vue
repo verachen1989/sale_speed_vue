@@ -24,7 +24,7 @@
       </div>
     </div>
 
-    <div class="mb-3 flex items-center gap-3">
+    <div class="mb-3 flex items-center justify-between gap-3">
       <div class="flex items-center gap-2">
         <button
           @click="metricType = '套数'"
@@ -49,27 +49,46 @@
           金额
         </button>
       </div>
+      <template v-if="period === '当年'">
+        <div class="flex items-center gap-3 shrink-0">
+          <div class="flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-orange-500"></div>
+            <span class="text-[#8c8c8c] text-[12px]">目标</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-green-700"></div>
+            <span class="text-[#8c8c8c] text-[12px]">实际</span>
+          </div>
+          <span class="text-[#8c8c8c] text-[11px]">单位：{{ displayScale.unit }}</span>
+        </div>
+      </template>
+      <span v-else class="text-[#8c8c8c] text-[11px] shrink-0">单位：{{ displayScale.unit }}</span>
     </div>
 
     <v-chart :option="chartOption" :style="{ height: '200px' }" autoresize />
 
-    <div class="mt-2 flex items-center justify-center gap-4 text-xs">
-      <template v-if="period === '当年'">
-        <div class="flex items-center gap-2">
-          <div class="w-2 h-2 rounded-full bg-orange-500"></div>
-          <span class="text-[#8c8c8c] text-[12px]">目标</span>
+    <div v-if="period === '当年'" class="mt-4 border-t border-[#f1f5f9] pt-4 flex items-center justify-around">
+      <div class="flex flex-col gap-1">
+        <span class="text-[#62748e] text-[12px]">目标月平均</span>
+        <div class="flex items-baseline gap-1">
+          <span class="text-[#0f172b] text-[18px] font-semibold">
+            {{ formatScaledValue(averageTarget, displayScale.divisor, displayScale.digits) }}
+          </span>
+          <span class="text-[#62748e] text-[12px]">{{ displayScale.unit }}</span>
         </div>
-        <div class="flex items-center gap-2">
-          <div class="w-2 h-2 rounded-full bg-green-700"></div>
-          <span class="text-[#8c8c8c] text-[12px]">实际</span>
+      </div>
+
+      <div class="w-px h-12 bg-[#e2e8f0]" />
+
+      <div class="flex flex-col gap-1">
+        <span class="text-[#62748e] text-[12px]">实际月平均</span>
+        <div class="flex items-baseline gap-1">
+          <span class="text-[#096] text-[18px] font-semibold">
+            {{ formatScaledValue(averageActual, displayScale.divisor, displayScale.digits) }}
+          </span>
+          <span class="text-[#62748e] text-[12px]">{{ displayScale.unit }}</span>
         </div>
-      </template>
-      <template v-else>
-        <div class="flex items-center gap-2">
-          <div class="w-2 h-2 rounded-full bg-green-700"></div>
-          <span class="text-[#8c8c8c] text-[12px]">实际</span>
-        </div>
-      </template>
+      </div>
     </div>
   </div>
 </template>
@@ -97,6 +116,57 @@ const props = defineProps<{
 const filterLabel = computed(() => props.filterLabel ?? '')
 const metricType = ref<'套数' | '金额'>('套数')
 const selectedVersion = ref<VersionType>('年度经营计划版')
+
+function getDisplayScale(metric: '套数' | '金额', values: number[]) {
+  const maxValue = Math.max(...values, 0)
+
+  if (metric === '金额') {
+    if (maxValue >= 10000) {
+      return { divisor: 10000, unit: '亿', digits: 1 }
+    }
+    return { divisor: 1, unit: '万', digits: 0 }
+  }
+
+  if (maxValue >= 10000) {
+    return { divisor: 10000, unit: '万套', digits: 1 }
+  }
+
+  return { divisor: 1, unit: '套', digits: 0 }
+}
+
+function formatScaledValue(value: number, divisor: number, digits: number) {
+  const scaled = value / divisor
+  const fixed = digits > 0 ? scaled.toFixed(digits) : Math.round(scaled).toString()
+  return digits > 0 ? fixed.replace(/\.0$/, '') : fixed
+}
+
+function getLabelDigits(value: number, divisor: number) {
+  const scaled = value / divisor
+  if (scaled >= 100) return 0
+  if (scaled >= 10) return 1
+  return 2
+}
+
+function getNiceStep(roughStep: number) {
+  if (roughStep <= 0) return 1
+  const exponent = Math.floor(Math.log10(roughStep))
+  const fraction = roughStep / 10 ** exponent
+
+  if (fraction <= 1) return 1 * 10 ** exponent
+  if (fraction <= 2) return 2 * 10 ** exponent
+  if (fraction <= 5) return 5 * 10 ** exponent
+  return 10 * 10 ** exponent
+}
+
+function buildYAxisTicks(values: number[]) {
+  const maxValue = Math.max(...values, 0)
+  const roughStep = maxValue / 4
+  const step = getNiceStep(roughStep)
+  const topValue = Math.max(step * 4, step)
+
+  return Array.from({ length: 5 }, (_, index) => index * step).filter((tick) => tick <= topValue)
+}
+
 const titleText = computed(() => {
   const title = {
     当日: '近7日流速趋势',
@@ -127,6 +197,37 @@ const trendData = computed(() => {
   }))
 })
 
+const averageTarget = computed(() => {
+  if (!trendData.value.length) return 0
+  return Math.round(trendData.value.reduce((sum, item) => sum + item.target, 0) / trendData.value.length)
+})
+
+const averageActual = computed(() => {
+  if (!trendData.value.length) return 0
+  return Math.round(trendData.value.reduce((sum, item) => sum + item.actual, 0) / trendData.value.length)
+})
+
+const displayScale = computed(() =>
+  getDisplayScale(
+    metricType.value,
+    trendData.value.flatMap((item) => [item.target, item.actual])
+  )
+)
+
+const yAxisTicks = computed(() =>
+  buildYAxisTicks(trendData.value.flatMap((item) => [item.target, item.actual]))
+)
+
+const yAxisMax = computed(() => yAxisTicks.value[yAxisTicks.value.length - 1] ?? 0)
+const yAxisInterval = computed(() => {
+  const first = yAxisTicks.value[0]
+  const second = yAxisTicks.value[1]
+  if (typeof first !== 'number' || typeof second !== 'number') {
+    return undefined
+  }
+  return second - first
+})
+
 const chartOption = computed(() => ({
   grid: {
     left: 50,
@@ -146,6 +247,9 @@ const chartOption = computed(() => ({
   },
   yAxis: {
     type: 'value',
+    min: 0,
+    max: yAxisMax.value || undefined,
+    interval: yAxisInterval.value,
     axisLine: { show: false },
     axisTick: { show: false },
     splitLine: {
@@ -157,6 +261,7 @@ const chartOption = computed(() => ({
     axisLabel: {
       color: '#8c8c8c',
       fontSize: 11,
+      formatter: (value: number) => formatScaledValue(value, displayScale.value.divisor, displayScale.value.digits),
     },
   },
   tooltip: {
@@ -216,6 +321,15 @@ const chartOption = computed(() => ({
         borderRadius: [4, 4, 0, 0],
       },
       barWidth: 16,
+      label: {
+        show: true,
+        position: 'top',
+        color: '#8c8c8c',
+        fontSize: 10,
+        fontWeight: 500,
+        formatter: ({ value }: { value: number }) =>
+          formatScaledValue(value, displayScale.value.divisor, getLabelDigits(value, displayScale.value.divisor)),
+      },
     }]
       : []),
     {
@@ -237,6 +351,15 @@ const chartOption = computed(() => ({
         borderRadius: [4, 4, 0, 0],
       },
       barWidth: 16,
+      label: {
+        show: true,
+        position: 'top',
+        color: '#8c8c8c',
+        fontSize: 10,
+        fontWeight: 500,
+        formatter: ({ value }: { value: number }) =>
+          formatScaledValue(value, displayScale.value.divisor, getLabelDigits(value, displayScale.value.divisor)),
+      },
     },
   ],
 }))

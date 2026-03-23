@@ -1,16 +1,16 @@
 <template>
-  <div class="bg-white rounded-xl p-3 mb-3">
-    <h3 class="text-gray-900 text-base font-semibold mb-2">{{ chartTitle }}</h3>
+  <div class="bg-white rounded-[12px] p-3 mb-3">
+    <h3 class="text-[#1a1a1a] text-[15px] font-semibold mb-2">{{ chartTitle }}</h3>
 
     <div class="mb-3 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <button
           @click="$emit('update:metricType', '套数')"
           :class="[
-            'px-3 py-1 text-xs rounded transition-colors',
+            'px-3 py-1 text-[12px] rounded transition-colors',
             metricType === '套数'
-              ? 'bg-green-700 text-white'
-              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              ? 'bg-[#007440] text-white'
+              : 'bg-gray-100 text-[#8c8c8c] hover:bg-gray-200'
           ]"
         >
           套数
@@ -18,18 +18,18 @@
         <button
           @click="$emit('update:metricType', '金额')"
           :class="[
-            'px-3 py-1 text-xs rounded transition-colors',
+            'px-3 py-1 text-[12px] rounded transition-colors',
             metricType === '金额'
-              ? 'bg-green-700 text-white'
-              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              ? 'bg-[#007440] text-white'
+              : 'bg-gray-100 text-[#8c8c8c] hover:bg-gray-200'
           ]"
         >
           金额
         </button>
       </div>
 
-      <div v-if="period === '当年'" class="flex items-center gap-2 text-xs shrink-0">
-        <span class="text-gray-500">对比</span>
+      <div v-if="period === '当年'" class="flex items-center gap-2 text-[12px] shrink-0">
+        <span class="text-[#8c8c8c]">对比</span>
         <div class="relative inline-flex items-center">
           <select
             :value="selectedVersion"
@@ -49,26 +49,35 @@
       </div>
     </div>
 
-    <div class="flex items-center justify-end gap-3 mb-3">
-      <span class="text-gray-500 text-xs">单位：{{ unitLabel }}</span>
+    <div class="flex items-center justify-between gap-3 mb-3">
+      <div v-if="period === '当年'" class="flex items-center gap-4">
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full bg-orange-500"></div>
+          <span class="text-[#8c8c8c] text-[12px]">目标</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full bg-green-700"></div>
+          <span class="text-[#8c8c8c] text-[12px]">实际</span>
+        </div>
+        <div v-if="isAllLayoutSelected && metricType === '套数'" class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+          <span class="text-[#8c8c8c] text-[12px]">来访组数</span>
+        </div>
+      </div>
+      <div v-else class="flex items-center gap-4">
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full bg-green-700"></div>
+          <span class="text-[#8c8c8c] text-[12px]">实际</span>
+        </div>
+        <div v-if="isAllLayoutSelected && metricType === '套数'" class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+          <span class="text-[#8c8c8c] text-[12px]">来访组数</span>
+        </div>
+      </div>
+      <span class="text-[#8c8c8c] text-[11px] shrink-0">单位：{{ unitLabel }}</span>
     </div>
 
     <v-chart :option="chartOption" :style="{ height: '180px' }" autoresize />
-
-    <div class="mt-2 flex items-center justify-center gap-4 text-xs">
-      <div v-if="period === '当年'" class="flex items-center gap-2">
-        <div class="w-2 h-2 rounded-full bg-orange-500"></div>
-        <span class="text-gray-500">目标</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <div class="w-2 h-2 rounded-full bg-green-700"></div>
-        <span class="text-gray-500">实际</span>
-      </div>
-      <div v-if="isAllLayoutSelected && metricType === '套数'" class="flex items-center gap-2">
-        <div class="w-2 h-2 rounded-full bg-blue-500"></div>
-        <span class="text-gray-500">来访组数</span>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -102,11 +111,93 @@ defineEmits<{
 
 const isAllLayoutSelected = computed(() => props.selectedLayout === '全部已售')
 
+function getDisplayScale(metric: '套数' | '金额', values: number[]) {
+  const maxValue = Math.max(...values, 0)
+
+  if (metric === '金额') {
+    if (maxValue >= 10000) {
+      return { divisor: 10000, unit: '亿', digits: 1 }
+    }
+    return { divisor: 1, unit: '万', digits: 0 }
+  }
+
+  if (maxValue >= 10000) {
+    return { divisor: 10000, unit: '万套', digits: 1 }
+  }
+
+  return { divisor: 1, unit: '套', digits: 0 }
+}
+
+function formatScaledValue(value: number, divisor: number, digits: number) {
+  const scaled = value / divisor
+  const fixed = digits > 0 ? scaled.toFixed(digits) : Math.round(scaled).toString()
+  return digits > 0 ? fixed.replace(/\.0$/, '') : fixed
+}
+
+function getLabelDigits(value: number, divisor: number) {
+  const scaled = value / divisor
+  if (scaled >= 100) return 0
+  if (scaled >= 10) return 1
+  return 2
+}
+
+function getNiceStep(roughStep: number) {
+  if (roughStep <= 0) return 1
+  const exponent = Math.floor(Math.log10(roughStep))
+  const fraction = roughStep / 10 ** exponent
+
+  if (fraction <= 1) return 1 * 10 ** exponent
+  if (fraction <= 2) return 2 * 10 ** exponent
+  if (fraction <= 5) return 5 * 10 ** exponent
+  return 10 * 10 ** exponent
+}
+
+function buildYAxisTicks(values: number[]) {
+  const maxValue = Math.max(...values, 0)
+  const roughStep = maxValue / 4
+  const step = getNiceStep(roughStep)
+  const topValue = Math.max(step * 4, step)
+
+  return Array.from({ length: 5 }, (_, index) => index * step).filter((tick) => tick <= topValue)
+}
+
+const displayScale = computed(() => {
+  const values = props.chartData.flatMap((item) => {
+    const base = [item.target, item.actual]
+    if (isAllLayoutSelected.value && props.metricType === '套数') {
+      base.push(item.visits || 0)
+    }
+    return base
+  })
+  return getDisplayScale(props.metricType, values)
+})
+
+const yAxisTicks = computed(() => {
+  const values = props.chartData.flatMap((item) => {
+    const base = [item.target, item.actual]
+    if (isAllLayoutSelected.value && props.metricType === '套数') {
+      base.push(item.visits || 0)
+    }
+    return base
+  })
+  return buildYAxisTicks(values)
+})
+
+const yAxisMax = computed(() => yAxisTicks.value[yAxisTicks.value.length - 1] ?? 0)
+const yAxisInterval = computed(() => {
+  const first = yAxisTicks.value[0]
+  const second = yAxisTicks.value[1]
+  if (typeof first !== 'number' || typeof second !== 'number') {
+    return undefined
+  }
+  return second - first
+})
+
 const unitLabel = computed(() => {
   if (isAllLayoutSelected.value && props.metricType === '套数') {
-    return '套/组'
+    return `${displayScale.value.unit}/组`
   }
-  return props.metricType === '套数' ? '套' : '万'
+  return displayScale.value.unit
 })
 
 const chartOption = computed(() => {
@@ -134,6 +225,15 @@ const chartOption = computed(() => {
       },
       barWidth: 14,
       barGap: '10%',
+      label: {
+        show: true,
+        position: 'top',
+        color: '#8c8c8c',
+        fontSize: 10,
+        fontWeight: 500,
+        formatter: ({ value }: { value: number }) =>
+          formatScaledValue(value, displayScale.value.divisor, getLabelDigits(value, displayScale.value.divisor)),
+      },
     })
   }
   
@@ -159,6 +259,14 @@ const chartOption = computed(() => {
       },
       barWidth: 14,
       barGap: '10%',
+      label: {
+        show: true,
+        position: 'top',
+        color: '#8c8c8c',
+        fontSize: 10,
+        fontWeight: 500,
+        formatter: ({ value }: { value: number }) => value?.toLocaleString() ?? '',
+      },
     })
   }
   
@@ -183,6 +291,15 @@ const chartOption = computed(() => {
     },
     barWidth: 14,
     barGap: '10%',
+    label: {
+      show: true,
+      position: 'top',
+      color: '#8c8c8c',
+      fontSize: 10,
+      fontWeight: 500,
+      formatter: ({ value }: { value: number }) =>
+        formatScaledValue(value, displayScale.value.divisor, getLabelDigits(value, displayScale.value.divisor)),
+    },
   })
 
   return {
@@ -204,6 +321,9 @@ const chartOption = computed(() => {
     },
     yAxis: {
       type: 'value',
+      min: 0,
+      max: yAxisMax.value || undefined,
+      interval: yAxisInterval.value,
       axisLine: { show: false },
       axisTick: { show: false },
       splitLine: {
@@ -215,6 +335,7 @@ const chartOption = computed(() => {
       axisLabel: {
         color: '#8c8c8c',
         fontSize: 11,
+        formatter: (value: number) => formatScaledValue(value, displayScale.value.divisor, displayScale.value.digits),
       },
     },
     tooltip: {
